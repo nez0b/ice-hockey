@@ -76,8 +76,58 @@ class Team:
         # TODO: Change me. I'm just cruising straight
         imgs = player_image
         img1 = torch.movedim(torch.from_numpy(imgs[0]), 2, 0)
+        img2 = torch.movedim(torch.from_numpy(imgs[1]), 2, 0)
         #print('imgs: ', img1.unsqueeze(0).shape) 
         #modle output
-        output = self.model(img1.unsqueeze(0))
-        print('output: ', output)
-        return [dict(acceleration=1, steer=0)] * self.num_players
+        output1 = self.model(img1.unsqueeze(0))
+        output1 = output1.detach().numpy()
+        output1 = output1[0]*129
+        # player 2
+        output2 = self.model(img2.unsqueeze(0))
+        output2 = output2.detach().numpy()
+        output2 = output2[0]*129
+        #print('output: ', output)
+        x1p, y1p, x1g, y1g = list(output1)
+        x2p, y2p, x2g, y2g = list(output2)
+
+        d1p = np.sqrt(x1p**2 + y1p**2)
+        d1g = np.sqrt(x1g**2 + y1g**2)
+
+        d2p = np.sqrt(x2p**2 + y2p**2)
+        d2g = np.sqrt(x2g**2 + y2g**2)
+
+        a1 = 0.7
+        a2 = 0.7
+
+        if d1p > 2:
+            if y1p > 0:
+              steer1 = np.cos(np.arctan2(y1p, x1p))
+            else:
+              a1 = 0.1
+              steer1 = 0.95
+        else:
+            if y1g > 0:
+              steer1 = np.cos(np.arctan2(y1g, x1g))
+            else:
+              a1 = 0.1
+              steer1 = 0.95
+
+        if d2p > 1.:
+            if y2p > 0:
+              steer2 = np.cos(np.arctan2(y2p, x2p))
+            else:
+              a2 = 0.1
+              steer2 = 0.95
+        else:
+            if y2g > 0:
+              steer2 = np.cos(np.arctan2(y2g, x2g))
+            else:
+              a2 = 0.1
+              steer2 = 0.95
+
+        
+        #print('steer: ', np.cos(np.arctan2(y1p, x1p)))
+        
+        return [dict(acceleration=a1, steer=steer1), dict(acceleration=a2, steer=steer2) ] 
+
+        #return [dict(acceleration=1, steer=0)] * self.num_players

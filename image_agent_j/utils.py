@@ -9,6 +9,7 @@ from . import dense_transforms
 RESCUE_TIMEOUT = 30
 TRACK_OFFSET = 15
 DATASET_PATH = 'drive_data'
+LENGTH_SCALE = 129
 
 def load_recording(recording):
     from pickle import load
@@ -31,6 +32,11 @@ def obj_vec(kart, target, front):
     #return torch.tensor(dist), torch.tensor(cos_angle)
     return dist, cos_angle
 
+def pointer(kart, target, front):
+    kartvec = np.array([front[0]-kart[0], front[2]- kart[2]])
+    targetvec = target[::2]-kart[::2]
+    pointer = targetvec - kartvec
+    return pointer/LENGTH_SCALE
 
 class SuperTuxDataset(Dataset):
     def __init__(self, dataset_path=DATASET_PATH, transform=dense_transforms.ToTensor()):
@@ -54,7 +60,7 @@ class SuperTuxDataset(Dataset):
             loc2 = np.array(datadict['team1_state'][1]['kart']['location'])
             front2 = np.array(datadict['team1_state'][1]['kart']['front'])
 
-            """
+            #"""
             proj_mat3 = np.array(datadict['team2_state'][0]['camera']['projection'])
             view_mat3 = np.array(datadict['team2_state'][0]['camera']['view'])
             loc3 = np.array(datadict['team2_state'][0]['kart']['location'])
@@ -65,7 +71,7 @@ class SuperTuxDataset(Dataset):
             loc4 = np.array(datadict['team2_state'][1]['kart']['location'])
             front4 = np.array(datadict['team2_state'][1]['kart']['front'])
 
-            """
+            #"""
 
             #print('proj mat shape: ', proj_mat1.shape)
             """
@@ -101,15 +107,18 @@ class SuperTuxDataset(Dataset):
 
             #print('-------------------- PUCK distance and angle---------------------------')
             #dist_to_obj(puckloc, proj_mat1.T, view_mat1.T)
+            # team 1
             d1, a1 = obj_vec(loc1, puckloc, front1)
             d2, a2 = obj_vec(loc2, puckloc, front2)
-            #d3, a3 = obj_vec(loc3, puckloc, front3)
-            #d4, a4 = obj_vec(loc4, puckloc, front4)
+            # team 2
+            d3, a3 = obj_vec(loc3, puckloc, front3)
+            d4, a4 = obj_vec(loc4, puckloc, front4)
 
             #print('kart1, dist: ', d1, ' angle: ', np.arccos(a1))
             #print('kart2, dist: ', d2, ' angle: ', np.arccos(a2))
             #print('kart3, dist: ', d3, ' angle: ', np.arccos(a3))
             #print('kart4, dist: ', d4, ' angle: ', np.arccos(a4))
+
 
             #print('-------------------- GOAL distance and angle---------------------------')
             goal1 = np.array([0, 0.07, 64.5])
@@ -117,26 +126,53 @@ class SuperTuxDataset(Dataset):
             #dist_to_obj(puckloc, proj_mat1.T, view_mat1.T)
             d1g1, a1g1 = obj_vec(loc1, goal1, front1)
             d2g1, a2g1 = obj_vec(loc2, goal1, front2)
-            d1g2, a1g2 = obj_vec(loc1, goal2, front1)
-            d2g2, a2g2 = obj_vec(loc2, goal2, front2)
+            #d1g2, a1g2 = obj_vec(loc1, goal2, front1)
+            #d2g2, a2g2 = obj_vec(loc2, goal2, front2)
+            d3g2, a3g2 = obj_vec(loc3, goal2, front3)
+            d4g2, a4g2 = obj_vec(loc4, goal2, front4)
 
             #print('kart1, dist: ', d1g, ' angle: ', np.arccos(a1g))
             #print('kart2, dist: ', d2g, ' angle: ', np.arccos(a2g))
             #print('kart3, dist: ', d3g, ' angle: ', np.arccos(a3g))
             #print('kart4, dist: ', d4g, ' angle: ', np.arccos(a4g))
 
+            #print('-------------------- POINTER to PUCK ---------------------------')
+            p1p = pointer(loc1, puckloc, front1)
+            p2p = pointer(loc2, puckloc, front2)
+            p3p = pointer(loc3, puckloc, front3)
+            p4p = pointer(loc4, puckloc, front4)
+
+            #print('-------------------- POINTER to GOAL ---------------------------')
+            p1g = pointer(loc1, goal1, front1)
+            p2g = pointer(loc2, goal1, front2)
+            p3g = pointer(loc3, goal2, front3)
+            p4g = pointer(loc4, goal2, front4)
 
             #print('-------------------- IMAGE---------------------------------------')
             #"""
             t1img = datadict['team1_images']
             t1img = np.array(t1img) 
-            t1img = t1img[0,:,:,:] 
-            #t2img = datadict['team2_images']
-            #t2img = np.array(t2img) 
-            label = np.array([d1, a1, d1g1, a1g1])
+            t1img1 = t1img[0,:,:,:] 
+            t1img2 = t1img[1,:,:,:]
+            #team 2
+            t2img = datadict['team2_images']
+            t2img = np.array(t2img) 
+            t2img1 = t2img[0,:,:,:] 
+            t2img2 = t2img[1,:,:,:]
+            #label1 = np.array([d1, a1, d1g1, a1g1])
+            #label2 = np.array([d2, a2, d2g1, a2g1])
+
+            label1 = np.concatenate([p1p, p1g])
+            label2 = np.concatenate([p2p, p2g])
+            label3 = np.concatenate([p3p, p3g])
+            label4 = np.concatenate([p4p, p4g])
 
 
-            self.data.append((t1img, label))
+            self.data.append((t1img1, label1))
+            self.data.append((t1img2, label2))
+            self.data.append((t2img1, label3))
+            self.data.append((t2img2, label4))
+
         self.transform = transform
 
     def __len__(self):
