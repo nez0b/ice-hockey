@@ -77,14 +77,18 @@ class Team:
         imgs = player_image
         img1 = torch.movedim(torch.from_numpy(imgs[0]), 2, 0)
         img2 = torch.movedim(torch.from_numpy(imgs[1]), 2, 0)
+
+        img1 = img1.to(device=self.device)
+        img2 = img2.to(device=self.device)
         #print('imgs: ', img1.unsqueeze(0).shape) 
         #modle output
         output1 = self.model(img1.unsqueeze(0))
-        output1 = output1.detach().numpy()
+        #output1 = output1.detach().numpy()
+        output1 = output1.detach().cpu()
         output1 = output1[0]*129
         # player 2
         output2 = self.model(img2.unsqueeze(0))
-        output2 = output2.detach().numpy()
+        output2 = output2.detach().cpu()
         output2 = output2[0]*129
         #print('output: ', output)
         x1p, y1p, x1g, y1g = list(output1)
@@ -96,38 +100,45 @@ class Team:
         d2p = np.sqrt(x2p**2 + y2p**2)
         d2g = np.sqrt(x2g**2 + y2g**2)
 
-        a1 = 0.7
-        a2 = 0.7
+        a1 = 0.8
+        a2 = 0.8
+        b1 = False
+        b2 = False
 
-        if d1p > 2:
+        if d1p > 0:
             if y1p > 0:
               steer1 = np.cos(np.arctan2(y1p, x1p))
             else:
-              a1 = 0.1
-              steer1 = 0.95
+              a1 = 0.
+              b1 = True
+              steer1 = 0.
         else:
             if y1g > 0:
               steer1 = np.cos(np.arctan2(y1g, x1g))
             else:
-              a1 = 0.1
-              steer1 = 0.95
+              a1 = 0.
+              b1 = True
+              steer1 = 0.
 
         if d2p > 1.:
             if y2p > 0:
               steer2 = np.cos(np.arctan2(y2p, x2p))
             else:
-              a2 = 0.1
-              steer2 = 0.95
+              a2 = 0.
+              b2 = True
+              steer2 = 0.
         else:
             if y2g > 0:
               steer2 = np.cos(np.arctan2(y2g, x2g))
             else:
-              a2 = 0.1
-              steer2 = 0.95
+              a2 = 0.
+              b2 = True
+              steer2 = 0.
 
         
-        #print('steer: ', np.cos(np.arctan2(y1p, x1p)))
+        #print('steer1: ', steer1, 'steer2: ', steer2)
+        #print('brake: ', b1, ' ', b2)
         
-        return [dict(acceleration=a1, steer=steer1), dict(acceleration=a2, steer=steer2) ] 
+        return [dict(acceleration=a1, steer=steer1, brake=b1), dict(acceleration=1, steer=0, brake=False) ] 
 
         #return [dict(acceleration=1, steer=0)] * self.num_players
