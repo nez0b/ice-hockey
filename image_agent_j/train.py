@@ -10,7 +10,7 @@ def train(args):
     model = Detector()
     train_logger, valid_logger = None, None
     if args.log_dir is not None:
-        train_logger = tb.SummaryWriter(path.join(args.log_dir, 'train'))
+        train_logger = tb.SummaryWriter(path.join(args.log_dir, 'train_c2'))
 
     """
     Your code here, modify your HW4 code
@@ -23,6 +23,7 @@ def train(args):
 
     model = model.to(device)
     if args.continue_training:
+        print("continue training")
         model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     #loss = torch.nn.L1Loss()
@@ -32,7 +33,7 @@ def train(args):
     #import inspect
     #transform = eval(args.transform, {k: v for k, v in inspect.getmembers(dense_transforms) if inspect.isclass(v)})
 
-    train_data = load_data('test.pkl', num_workers=args.num_workers)
+    train_data = load_data('test.pkl',  batch_size=20)
 
     global_step = 0
     for epoch in range(args.num_epoch):
@@ -63,8 +64,8 @@ def train(args):
             losses.append(loss_val.detach().cpu().numpy())
         
         avg_loss = np.mean(losses)
-        if train_logger is None:
-            print('epoch %-3d \t loss = %0.3f' % (epoch, avg_loss))
+        #if train_logger is None:
+        print('epoch %-3d \t loss = %0.3f' % (epoch, avg_loss))
         save_model(model)
 
     save_model(model)
