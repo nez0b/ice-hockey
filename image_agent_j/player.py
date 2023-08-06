@@ -136,6 +136,7 @@ class Team:
               steer2 = 0.
 
         
+        
         #print('steer1: ', steer1, 'steer2: ', steer2)
         #print('brake: ', b1, ' ', b2)
         
