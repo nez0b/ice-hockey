@@ -13,7 +13,7 @@ LENGTH_SCALE = 129
 WH2 = np.array([400, 300])/2 # rescale factor of the image size
 GOAL_H = 10.
 GOAL_M = 5.
-FRAME_NUM = 35*4 # frame * num * 4 (4 players)
+FRAME_NUM = 100*4 # frame * num * 4 (4 players)
 
 def load_recording(recording):
     from pickle import load
@@ -314,7 +314,7 @@ class SuperTuxDataset(Dataset):
             goal2_4 = [[goal2_x1edge_4[0], goal2_z1edge_4[1], goal2_x2edge_4[0] , goal2_z2edge_4[1]]]
 
             #empty_label = [[None, None, None, None]]
-            empty_label = []
+            empty_label = [[]]
 
             # Check whether puck and goals are in the kart's view
             #---------Player 1-----------------------
@@ -358,8 +358,6 @@ class SuperTuxDataset(Dataset):
             if vg2_4 < 0:
                 goal2_4 = empty_label
 
-
-
             self.data.append((t1img1, label1, goal1_1, goal2_1))
             self.data.append((t1img2, label2, goal1_2, goal2_2))
             self.data.append((t2img1, label3, goal1_3, goal2_3))
@@ -373,10 +371,10 @@ class SuperTuxDataset(Dataset):
     def __getitem__(self, idx):
         img, puck, goal1, goal2 = self.data[idx]
         #img = self.transform(img)
-        return (img, puck, goal1, goal2)
+        return (img, puck, goal1, goal2)   
 
 
-def load_data(dataset_path=DATASET_PATH, transform=dense_transforms.ToTensor(), num_workers=0, batch_size=64):
+def load_data(dataset_path=DATASET_PATH, transform=dense_transforms.ToTensor(), num_workers=0, batch_size=32):
     dataset = SuperTuxDataset(dataset_path, transform=transform)
     return DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, shuffle=True, drop_last=True)
 

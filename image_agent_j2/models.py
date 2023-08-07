@@ -56,7 +56,7 @@ class Detector(torch.nn.Module):
         def forward(self, x):
             return F.relu(self.c1(x))
 
-    def __init__(self, layers=[16, 32, 64, 128], n_class=4, kernel_size=3, use_skip=True):
+    def __init__(self, layers=[16, 32, 64, 128], n_class=3, kernel_size=3, use_skip=True):
         """
            Your code here.
            Setup your detection network
@@ -107,7 +107,25 @@ class Detector(torch.nn.Module):
         #print('output data type: ',  self.classifier(z).mean(dim=[2,3]).dtype )
         #return self.classifier(z)
         #return spatial_argmax(self.classifier(z)[:, 0])
-        return self.classifier(z).mean(dim=[2,3])
+        return self.classifier(z).mean(dim=[2,3]), self.size(z)
+
+    def detect(self, image, **kwargs):
+        """
+           Your code here.
+           Implement object detection here.
+           @image: 3 x H x W image
+           @return: Three list of detections [(score, cx, cy, w/2, h/2), ...], one per class,
+                    return no more than 30 detections per image per class. You only need to predict width and height
+                    for extra credit. If you do not predict an object size, return w=0, h=0.
+           Hint: Use extract_peak here
+           Hint: Make sure to return three python lists of tuples of (float, int, int, float, float) and not a pytorch
+                 scalar. Otherwise pytorch might keep a computation graph in the background and your program will run
+                 out of memory.
+        """
+        cls, size = self.forward(image[None])
+        size = size.cpu()
+        return [[(s, x, y, float(size[0, 0, y, x]), float(size[0, 1, y, x]))
+                 for s, x, y in extract_peak(c, max_det=30, **kwargs)] for c in cls[0]]
 
 
 

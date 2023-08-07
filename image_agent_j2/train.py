@@ -28,23 +28,28 @@ def train(args):
     #loss = torch.nn.L1Loss()
     loss = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    
+    det_loss = torch.nn.BCEWithLogitsLoss(reduction='none')
+    size_loss = torch.nn.MSELoss(reduction='none')
     #import inspect
     #transform = eval(args.transform, {k: v for k, v in inspect.getmembers(dense_transforms) if inspect.isclass(v)})
-
-    train_data = load_data('t1.pkl', num_workers=args.num_workers)
-
+    train_data = load_data('test.pkl', num_workers=args.num_workers)
+    
     global_step = 0
     for epoch in range(args.num_epoch):
         model.train()
         losses = []
-        for img, label in train_data:
+       
+        for img, label , g1 in train_data:
+            print(img)
+            print(label)
+            print(g1)
             #print('img shape bef: ', img.shape)
             img = torch.movedim(img, 3, 1)
             #print('img shape after', img.shape )
             label = torch.tensor(label).to(dtype=torch.float32)
             #print('label shape: ', label.shape)
             #print('label data type: ', label.dtype)
+            print("hi")
             img, label = img.to(device), label.to(device)
 
             pred = model(img)
@@ -54,7 +59,11 @@ def train(args):
                 train_logger.add_scalar('loss', loss_val, global_step)
                 #if global_step % 100 == 0:
                     #log(train_logger, img, label, pred, global_step)
-
+            # p_det = torch.sigmoid(det * (1-2*gt_det))
+            # det_loss_val = (det_loss(det, gt_det)*p_det).mean() / p_det.mean()
+            # size_loss_val = (size_w * size_loss(size, gt_size)).mean() / size_w.mean()
+            # loss_val = det_loss_val + size_loss_val * args.size_weight
+            
             optimizer.zero_grad()
             loss_val.backward()
             optimizer.step()
