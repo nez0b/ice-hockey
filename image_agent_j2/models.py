@@ -56,7 +56,7 @@ class Detector(torch.nn.Module):
         def forward(self, x):
             return F.relu(self.c1(x))
 
-    def __init__(self, layers=[16, 32, 64, 128], n_class=4, kernel_size=3, use_skip=True):
+    def __init__(self, layers=[16, 32, 64, 128], n_class=3, kernel_size=3, use_skip=True):
         """
            Your code here.
            Setup your detection network
@@ -79,7 +79,7 @@ class Detector(torch.nn.Module):
             if self.use_skip:
                 c += skip_layer_size[i]
         self.classifier = torch.nn.Conv2d(c, n_class, 1)
-        self.size = torch.nn.Conv2d(c, 4, 1)
+        self.size = torch.nn.Conv2d(c, 2, 1)
 
     def forward(self, x):
         """
@@ -87,9 +87,7 @@ class Detector(torch.nn.Module):
            Implement a forward pass through the network, use forward for training,
            and detect for detection
         """
-        #print('input shape: ', x.shape)
         z = (x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device)
-        #z = x
         up_activation = []
         for i in range(self.n_conv):
             # Add all the information required for skip connections
@@ -103,11 +101,25 @@ class Detector(torch.nn.Module):
             # Add the skip connection
             if self.use_skip:
                 z = torch.cat([z, up_activation[i]], dim=1)
-        #print('output shape: ',  self.classifier(z).mean(dim=[2,3]).shape )
-        #print('output data type: ',  self.classifier(z).mean(dim=[2,3]).dtype )
-        #return self.classifier(z)
-        #return spatial_argmax(self.classifier(z)[:, 0])
-        return self.classifier(z).mean(dim=[2,3])
+        return self.classifier(z), self.size(z)
+
+    def detect(self, image, **kwargs):
+        """
+           Your code here.
+           Implement object detection here.
+           @image: 3 x H x W image
+           @return: Three list of detections [(score, cx, cy, w/2, h/2), ...], one per class,
+                    return no more than 30 detections per image per class. You only need to predict width and height
+                    for extra credit. If you do not predict an object size, return w=0, h=0.
+           Hint: Use extract_peak here
+           Hint: Make sure to return three python lists of tuples of (float, int, int, float, float) and not a pytorch
+                 scalar. Otherwise pytorch might keep a computation graph in the background and your program will run
+                 out of memory.
+        """
+        cls, size = self.forward(image[None])
+        size = size.cpu()
+        return [[(s, x, y, float(size[0, 0, y, x]), float(size[0, 1, y, x]))
+                 for s, x, y in extract_peak(c, max_det=30, **kwargs)] for c in cls[0]]
 
 
 

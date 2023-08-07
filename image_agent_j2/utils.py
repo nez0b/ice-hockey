@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms.functional as TF
+import torchvision.transforms.functional as F
 from . import dense_transforms
 
 RESCUE_TIMEOUT = 30
@@ -52,6 +52,7 @@ class SuperTuxDataset(Dataset):
         from glob import glob
         from os import path
         self.data = []
+        self.transform = transform
 
         for frame in load_recording(dataset_path):
     
@@ -281,13 +282,14 @@ class SuperTuxDataset(Dataset):
             #"""
             t1img = datadict['team1_images']
             t1img = np.array(t1img) 
-            t1img1 = t1img[0,:,:,:] 
-            t1img2 = t1img[1,:,:,:]
+            t1img1 = t1img[0,:,:,:].transpose([2,0,1]) 
+            t1img2 = t1img[1,:,:,:].transpose([2,0,1]) 
+            #print('t1imgshape', t1img1.shape)
             #team 2
             t2img = datadict['team2_images']
             t2img = np.array(t2img) 
-            t2img1 = t2img[0,:,:,:] 
-            t2img2 = t2img[1,:,:,:]
+            t2img1 = t2img[0,:,:,:].transpose([2,0,1])  
+            t2img2 = t2img[1,:,:,:].transpose([2,0,1]) 
             
             
             #label1 = np.array([puck_x1edge_1[0], puck_z1edge_1[1], puck_x2edge_1[0] , puck_z2edge_1[1]])
@@ -313,7 +315,7 @@ class SuperTuxDataset(Dataset):
             goal1_4 = [[goal1_x1edge_4[0], goal1_z1edge_4[1], goal1_x2edge_4[0] , goal1_z2edge_4[1]]]
             goal2_4 = [[goal2_x1edge_4[0], goal2_z1edge_4[1], goal2_x2edge_4[0] , goal2_z2edge_4[1]]]
 
-            #empty_label = [[None, None, None, None]]
+            #empty_label = [[-1., -1., -1., -1.]]
             empty_label = []
 
             # Check whether puck and goals are in the kart's view
@@ -360,20 +362,24 @@ class SuperTuxDataset(Dataset):
 
 
 
-            self.data.append((t1img1, label1, goal1_1, goal2_1))
-            self.data.append((t1img2, label2, goal1_2, goal2_2))
-            self.data.append((t2img1, label3, goal1_3, goal2_3))
-            self.data.append((t2img2, label4, goal1_4, goal2_4))
-
-        self.transform = transform
+            self.data.append((F.to_pil_image(t1img1.transpose([1,2,0])), np.array(label1), np.array(goal1_1), np.array(goal2_1)))
+            self.data.append((F.to_pil_image(t1img2.transpose([1,2,0])), np.array(label2), np.array(goal1_2), np.array(goal2_2)))
+            self.data.append((F.to_pil_image(t2img1.transpose([1,2,0])), np.array(label3), np.array(goal1_3), np.array(goal2_3)))
+            self.data.append((F.to_pil_image(t2img2.transpose([1,2,0])), np.array(label4), np.array(goal1_4), np.array(goal2_4)))
+            
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        img, puck, goal1, goal2 = self.data[idx]
+        #img, puck, goal1, goal2 = self.data[idx]
         #img = self.transform(img)
-        return (img, puck, goal1, goal2)
+        #return img, puck, goal1, goal2
+        data = self.data[idx]
+        if self.transform is not None:
+            #print('doing transforms')
+            data = self.transform(*data)
+        return data
 
 
 def load_data(dataset_path=DATASET_PATH, transform=dense_transforms.ToTensor(), num_workers=0, batch_size=64):
@@ -384,7 +390,6 @@ def load_data(dataset_path=DATASET_PATH, transform=dense_transforms.ToTensor(), 
 
 if __name__ == '__main__':
     dataset = SuperTuxDataset('test.pkl')
-    import torchvision.transforms.functional as F
     #from pylab import show, subplots
     import matplotlib.pyplot as plt
     #from matplotlib.patches import Circle
@@ -395,11 +400,12 @@ if __name__ == '__main__':
     print('axes: ', axs)
     for i, ax in enumerate(axs.flat):
         im, puck, goal1, goal2 = dataset[FRAME_NUM+i]
+        print('shapes: ', puck.shape, goal1.shape, goal2.shape)
         #print('image: ', im.shape)
         #print('label: ', puck)
         #hm, size = dense_transforms.detections_to_heatmap(label, im.shape[1:])
-        #ax.imshow(F.to_pil_image(im), interpolation=None)
-        ax.imshow(im)
+        ax.imshow(F.to_pil_image(im.transpose([1,2,0])), interpolation=None)
+        #ax.imshow(im)
         for k in puck:
             ax.add_patch(
                 #patches.Rectangle((k[0] - 0.5, k[1] - 0.5), k[2] - k[0], k[3] - k[1], fc='none', ec='r', lw=2))
@@ -421,6 +427,7 @@ if __name__ == '__main__':
     for i, ax in enumerate(axs.flat):
 
         im, *dets = dataset[FRAME_NUM+i]
+        im = im.transpose([1,2,0])
         hm, size = dense_transforms.detections_to_heatmap(dets, im.shape[0:2])
         #print('hm: ', torch.nonzero(hm))
         #print('size: ', torch.nonzero(size))

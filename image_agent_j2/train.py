@@ -26,47 +26,58 @@ def train(args):
         model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     #loss = torch.nn.L1Loss()
-    loss = torch.nn.MSELoss()
+    #loss = torch.nn.MSELoss()
+    det_loss = torch.nn.BCEWithLogitsLoss(reduction='none')
+    size_loss = torch.nn.MSELoss(reduction='none')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     
-    #import inspect
+    import inspect
     #transform = eval(args.transform, {k: v for k, v in inspect.getmembers(dense_transforms) if inspect.isclass(v)})
-
-    train_data = load_data('t1.pkl', num_workers=args.num_workers)
+    #train_data = load_detection_data('dense_data/train', num_workers=4, transform=transform)
+    transform = dense_transforms.Compose([dense_transforms.ColorJitter(0.2, 0.5, 0.5, 0.2), 
+                                          dense_transforms.RandomHorizontalFlip(), 
+                                          dense_transforms.ToTensor(),
+                                          dense_transforms.ToHeatmap()])
+    train_data = load_data('test.pkl', num_workers=args.num_workers, transform=transform)
 
     global_step = 0
     for epoch in range(args.num_epoch):
         model.train()
-        losses = []
-        for img, label in train_data:
-            #print('img shape bef: ', img.shape)
-            img = torch.movedim(img, 3, 1)
-            #print('img shape after', img.shape )
-            label = torch.tensor(label).to(dtype=torch.float32)
-            #print('label shape: ', label.shape)
-            #print('label data type: ', label.dtype)
-            img, label = img.to(device), label.to(device)
 
-            pred = model(img)
-            loss_val = loss(pred, label)
+        for img, gt_det, gt_size in train_data:
+            img, gt_det, gt_size = img.to(device), gt_det.to(device), gt_size.to(device)
+
+            size_w, _ = gt_det.max(dim=1, keepdim=True)
+            #img = torch.movedim(img, 3, 1)
+
+            det, size = model(img)
+            # Continuous version of focal loss
+            #print('gt_det: ', gt_det.shape)
+            #print('det: ', det.shape)
+            p_det = torch.sigmoid(det * (1-2*gt_det))
+            det_loss_val = (det_loss(det, gt_det)*p_det).mean() / p_det.mean()
+            size_loss_val = (size_w * size_loss(size, gt_size)).mean() / size_w.mean()
+            #loss_val = det_loss_val + size_loss_val * args.size_weight
+            loss_val = det_loss_val + size_loss_val * 0.02
+
+            #if train_logger is not None and global_step % 100 == 0:
+            #    log(train_logger, img, gt_det, det, global_step)
 
             if train_logger is not None:
+                train_logger.add_scalar('det_loss', det_loss_val, global_step)
+                train_logger.add_scalar('size_loss', size_loss_val, global_step)
                 train_logger.add_scalar('loss', loss_val, global_step)
-                #if global_step % 100 == 0:
-                    #log(train_logger, img, label, pred, global_step)
-
             optimizer.zero_grad()
             loss_val.backward()
             optimizer.step()
             global_step += 1
-            
-            losses.append(loss_val.detach().cpu().numpy())
-        
-        avg_loss = np.mean(losses)
-        if train_logger is None:
-            print('epoch %-3d \t loss = %0.3f' % (epoch, avg_loss))
-        save_model(model)
 
+        if valid_logger is None or train_logger is None:
+            print('epoch %-3d' %
+                  (epoch))
+        #save_model(model)
+
+    
     save_model(model)
 
 def log(logger, img, label, pred, global_step):

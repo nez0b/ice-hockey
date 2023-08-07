@@ -43,6 +43,7 @@ class ColorJitter(T.ColorJitter):
 class ToTensor(object):
     def __call__(self, image, *args):
         return (F.to_tensor(image),) + args
+        #return (image,) + args
 
 
 class ToHeatmap(object):
@@ -62,7 +63,7 @@ def detections_to_heatmap(dets, shape, radius=7, device=None):
             #print('i: ', i, 'det: ', det)
             if len(det):
                 #det = torch.tensor(det.astype(float), dtype=torch.float32, device=device)
-                det = torch.tensor(np.array(det), dtype=torch.float32, device=device)
+                det = torch.tensor(det, dtype=torch.float32, device=device)
                 cx, cy = (det[:, 0] + det[:, 2] - 1) / 2, (det[:, 1] + det[:, 3] - 1) / 2
                 x = torch.arange(shape[1], dtype=cx.dtype, device=cx.device)
                 y = torch.arange(shape[0], dtype=cy.dtype, device=cy.device)
