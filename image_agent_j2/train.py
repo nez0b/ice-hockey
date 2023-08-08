@@ -19,10 +19,12 @@ def train(args):
     import torch
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    #device = torch.device('cpu')
     print('device: ', device)
 
     model = model.to(device)
-    if args.continue_training:
+    if args.continue_training: 
+        print("continue training")
         model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     #loss = torch.nn.L1Loss()
@@ -38,7 +40,7 @@ def train(args):
                                           dense_transforms.RandomHorizontalFlip(), 
                                           dense_transforms.ToTensor(),
                                           dense_transforms.ToHeatmap()])
-    train_data = load_data('test.pkl', num_workers=args.num_workers, transform=transform)
+    train_data = load_data('test.pkl', num_workers=0, transform=transform, batch_size=10)
 
     global_step = 0
     for epoch in range(args.num_epoch):
@@ -73,9 +75,9 @@ def train(args):
             global_step += 1
 
         if valid_logger is None or train_logger is None:
-            print('epoch %-3d' %
-                  (epoch))
-        #save_model(model)
+            print('epoch %-3d det loss %-3d  size loss %-3d' %
+                  (epoch,det_loss_val,size_loss_val ) )
+        save_model(model)
 
     
     save_model(model)

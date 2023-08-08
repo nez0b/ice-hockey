@@ -73,12 +73,22 @@ class Team:
                  rescue:       bool (optional. no clue where you will end up though.)
                  steer:        float -1..1 steering angle
         """
+        
         # TODO: Change me. I'm just cruising straight
         imgs = player_image
+
+        
         img1 = torch.movedim(torch.from_numpy(imgs[0]), 2, 0)
         img2 = torch.movedim(torch.from_numpy(imgs[1]), 2, 0)
         #print('imgs: ', img1.unsqueeze(0).shape) 
         #modle output
+        
+        img1=img1.to(device=self.device)
+        pred = self.model.detect(img1, max_pool_ks=7, min_score= 0.1)
+        print("pred",len(pred))
+        print("puck",len(pred[0]))
+        print("goal1",len(pred[1]))
+        print("goal2",len(pred[2]))
         output1 = self.model(img1.unsqueeze(0))
         output1 = output1.detach().numpy()
         output1 = output1[0]*129
