@@ -119,7 +119,7 @@ class Detector(torch.nn.Module):
         cls, size = self.forward(image[None])
         size = size.cpu()
         return [[(s, x, y, float(size[0, 0, y, x]), float(size[0, 1, y, x]))
-                 for s, x, y in extract_peak(c, max_det=15, **kwargs)] for c in cls[0]]
+                 for s, x, y in extract_peak(c, max_det=10, **kwargs)] for c in cls[0]]
 
 
 

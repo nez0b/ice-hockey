@@ -2,7 +2,7 @@ from .models import Detector, load_model
 from os import path
 import numpy as np
 import torch
-
+from .utils import _to_image, _in_view, obj_vec
 
 class Team:
     agent_type = 'image'
@@ -84,67 +84,36 @@ class Team:
         #modle output
         
         img1=img1.to(device=self.device)
-        pred = self.model.detect(img1, max_pool_ks=7, min_score= 0.1)
-        print("pred",len(pred))
-        print("puck",len(pred[0]))
-        print("goal1",len(pred[1]))
-        print("goal2",len(pred[2]))
-        output1 = self.model(img1.unsqueeze(0))
-        output1 = output1.detach().numpy()
-        output1 = output1[0]*129
-        # player 2
-        output2 = self.model(img2.unsqueeze(0))
-        output2 = output2.detach().numpy()
-        output2 = output2[0]*129
-        #print('output: ', output)
-        x1p, y1p, x1g, y1g = list(output1)
-        x2p, y2p, x2g, y2g = list(output2)
+        pred = self.model.detect(img1, max_pool_ks=7, min_score= 0.3)
+        # print("pred",len(pred))
+        # print("puck",(pred[0]))
+        # print("goal1",(pred[1]))
+        # print("goal2",(pred[2]))
 
-        d1p = np.sqrt(x1p**2 + y1p**2)
-        d1g = np.sqrt(x1g**2 + y1g**2)
+        #pick the highest score as the prediction for puck location
+        if len(pred[0]) >0:
+          puck_det = (pred[0][0][1],pred[0][0][2])
+          goal1_det =  (pred[0][1][1],pred[0][1][2])
+          #print(puck_det)
 
-        d2p = np.sqrt(x2p**2 + y2p**2)
-        d2g = np.sqrt(x2g**2 + y2g**2)
-
-        a1 = 0.2
-        a2 = 0.2
-        b1 = False
-        b2 = False
-
-        if d1p > 1:
-            if y1p > 0:
-              steer1 = np.cos(np.arctan2(y1p, x1p))
-            else:
-              a1 = 0.
-              b1 = True
-              steer1 = 0.95
-        else:
-            if y1g > 0:
-              steer1 = np.cos(np.arctan2(y1g, x1g))
-            else:
-              a1 = 0.
-              b1 = True
-              steer1 = 0.95
-
-        if d2p > 1.:
-            if y2p > 0:
-              steer2 = np.cos(np.arctan2(y2p, x2p))
-            else:
-              a2 = 0.
-              b2 = True
-              steer2 = 0.95
-        else:
-            if y2g > 0:
-              steer2 = np.cos(np.arctan2(y2g, x2g))
-            else:
-              a2 = 0.1
-              b2 = True
-              steer2 = 0.95
-
+        #print(np.float32(player_state[0]['kart']['location']))
         
-        print('steer1: ', steer1, 'steer2: ', steer2)
-        print('brake: ', b1, ' ', b2)
-        
-        return [dict(acceleration=a1, steer=steer1, brake=b1), dict(acceleration=a2, steer=steer2, brake=b2) ] 
+        kart1_proj = np.float32(player_state[0]['camera']['projection'])
+        kart1_view = np.float32(player_state[0]['camera']['view'])
+
+        kart1_loc =  _to_image(np.float32(player_state[0]['kart']['location']), kart1_proj,kart1_view)
+        #print(kart_loc)
+        puck_loc = puck_det[0]/400
+        #print(puck_loc)
+        #angle = np.clip((puck_loc) , -1, 1)
+        #print(angle)
+        #steer1 = angle
+        a1=1
+        kart1_front =  _to_image(np.float32(player_state[0]['kart']['front']), kart1_proj,kart1_view)
+        goal1_dir = [goal1_det[0]/400, goal1_det[1]/300]
+        goal_angle = (np.clip(np.dot(kart1_front, goal1_dir), -1, 1))
+        angle = np.clip((goal_angle) , -1, 1)
+        steer1 = angle
+        return [dict(acceleration=a1, steer=steer1, brake=False), dict(acceleration=1 , steer=0, brake=False) ] 
 
         #return [dict(acceleration=1, steer=0)] * self.num_players
