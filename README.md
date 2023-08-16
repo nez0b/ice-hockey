@@ -19,4 +19,4 @@ Similar to the tasks and model of the HW4 of the course, the agent performs a ob
 
 ## Model Architecture 
 
-![Model Architecture](./arch.pdf)
+![Model Architecture](./arch.png)
